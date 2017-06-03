@@ -20,7 +20,7 @@ opts_chunk$set(echo = TRUE)
 ## Loading and preprocessing the data
 
 Unzip the data and load the dataframe.
-```{r load}
+```{r load, equal=T}
 unzip("activity.zip")
 
 activity <- read.csv("activity.csv")
