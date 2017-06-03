@@ -5,21 +5,156 @@ output:
     keep_md: true
 ---
 
+Set the required library for this assignment.
+```{r initialconditions}
+# Load the knitr library to set globals:
+require(knitr)
+require(lattice)
+```
+
+Set the general options for this assignment.
+```{r setoptions, equal=T}
+opts_chunk$set(echo = TRUE)
+```
 
 ## Loading and preprocessing the data
 
+Unzip the data and load the dataframe.
+```{r load}
+unzip("activity.zip")
 
+activity <- read.csv("activity.csv")
+```
+
+Inspect the first lines of the dataframe.
+```{r inspect}
+head(activity,5)
+```
 
 ## What is mean total number of steps taken per day?
 
+Analyse the frequency of steps per day of the user does.
+The days where the values are missing are disregarded.
+```{r nsteps}
+stepxday <- tapply(activity$steps,activity$date,sum,na.rm=T)
 
+hist(stepxday, xlab = "Steps in a day", breaks = 30)
+```
+
+Compute and report the median and the mean of the steps per day.
+```{r median&meansteps}
+medianstepxday <- median(stepxday)
+
+meanstepxday <- mean(stepxday)
+```
+
+The median results being `r medianstepxday`.  
+The calculated mean is `r meanstepxday`.
 
 ## What is the average daily activity pattern?
 
+Group the measurements by their interval.
+```{r meansteps}
+stepxinterval <- aggregate(steps ~ interval, activity, mean)
 
+str(stepxinterval)
+```
+
+Transform the interval variable into a time variable.
+```{r set2time}
+stepxinterval$time <- formatC(stepxinterval$interval, width = 4, format = "d", flag = "0")
+stepxinterval$time <- strptime(stepxinterval$time, format = "%H%M")
+
+str(stepxinterval)
+```
+
+Find the 5 minutes interval presenting the highest average value.
+Analyse the average steps per interval that the user does during the day. The plot presents also the highest mean value.
+```{r plotmeanintervals}
+maxstepxinterval <- max(stepxinterval$steps)
+maxstepxinterval_time <- stepxinterval$time[which(stepxinterval$steps == maxstepxinterval)]
+
+ p = plot(y=stepxinterval$steps, x=stepxinterval$time,
+     ylab = "No. steps", xlab = "Time",
+     main = "Average daily activity pattern", type="l") +
+  abline(v=as.numeric(as.POSIXlt(maxstepxinterval_time)),col="red")
+```
+
+The time of the day with the highest average amount of steps is `r format(maxstepxinterval_time,"%H:%M")`.
 
 ## Imputing missing values
 
+The dataset comes with several missing values.
+```{r missingvalues}
+sum(is.na(activity$steps))
+```
 
+Sometimes is required to get rid of the missing values. To do that the NA value can be disregarded and an average value taken. NAs will be filled with the average value of the measurements taken in that interval of time.
+```{r fillmissingvalues}
+activity.na<- transform(activity, steps = ifelse(is.na(activity$steps), stepxinterval$steps, activity$steps))
+
+sum(is.na(activity.na$steps))
+```
+
+Calculate the total number of steps taken per day with our new data frame:
+```{r nsteps.na}
+stepxday.na <- tapply(activity.na$steps,activity.na$date,sum)
+
+hist(stepxday.na, xlab = "Steps in a day", breaks = 30)
+```
+
+Compute and report the median and the mean of the steps per day.
+```{r median&meansteps.na}
+medianstepxday.na <- median(stepxday.na)
+
+meanstepxday.na <- mean(stepxday.na)
+```
+
+The median results being `r medianstepxday.na`.  
+The calculated mean is `r meanstepxday.na`.
+
+We notice that:
+
+* The mean calculated with the original values is the same as the mean calculated with the data containing NA values,
+
+* The median calculated of the original values is slightly higher than the median calculated with the data containing NA values,
+
+* The mean and the median are now equal.
+
+```{r compare}
+h = hist(stepxday.na, xlab = "Steps in a day", breaks = 30, col = "blue")
+  hist(stepxday, breaks = 30, add = T, col = "red")
+```
+
+By removing the NA values the total number of steps increases.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+An interesting question, is th user behaviour depending on the day of the week? Is there any relevant difference between weekday and weekend?
+The next step is to divide the dataset in these two subgroups.
+```{r weekdays&weekend}
+activity.na$weekday <- weekdays(as.Date(activity.na$date))
+
+activity.na$is.weekend <- grepl("^S",activity.na$weekday)
+activity.na$Type <- factor(activity.na$is.weekend, levels = c(F, T), labels = c("Weekday", "Weekend"))
+
+str(activity.na)
+```
+
+Now that we have the column weekend, we are able to separate the variable steps in two subgroups
+```{r weekdays&weekend.plot}
+stepxinterval.Type <- aggregate(steps ~ interval + Type, activity.na, mean)
+```
+
+As it was done before, transform the interval variable into a time variable.
+```{r set2time.type}
+stepxinterval.Type$time <- formatC(stepxinterval.Type$interval, width = 4, format = "d", flag = "0")
+stepxinterval.Type$time <- strptime(stepxinterval.Type$time, format = "%H%M")
+```
+
+```{r plotWeekdays}
+xyplot(steps ~ interval | Type, data = stepxinterval.Type,
+       layout = c(1,2), type ="l", xlab = "Interval", ylab = "Steps")
+```
+
+By looking at the graph is possible to say that there is a difference between weekdays and weekends. The main conclusion that can be drawn by the comparison is that the user on average around interval 800 is walking more during the weekdays than during the weekend.
